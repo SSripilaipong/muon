@@ -11,13 +11,13 @@ import (
 	"github.com/SSripilaipong/muon/server/runner"
 )
 
-func spawnHandler(objRunner runner.Runner) http.Handler {
+func spawnHandler(objRunner *runner.Controller) http.Handler {
 	type spawnRequest struct {
 		Object string `json:"object,required"`
 	}
 
 	requestToSyntaxTree := fn.Compose3(
-		httpsrv.ResultWithBadRequest(rslt.JoinFmap(resultParser.ParseNakedObjectMultilines)),
+		httpsrv.ResultWithBadRequest(rslt.JoinFmap(resultParser.ParseSimplifiedNode)),
 		rslt.Fmap(func(r spawnRequest) string { return r.Object }),
 		httpsrv.RequestJsonBody[spawnRequest],
 	)

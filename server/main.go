@@ -34,7 +34,7 @@ func Start() error {
 	return nil
 }
 
-func startRunner(objRunner runner.Runner) (error, func()) {
+func startRunner(objRunner *runner.Controller) (error, func()) {
 	if err := objRunner.Start(); err != nil {
 		return fmt.Errorf("cannot start object runner: %w", err), nil
 	}

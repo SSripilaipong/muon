@@ -10,7 +10,7 @@ require (
 )
 
 require (
-	github.com/SSripilaipong/muto v0.0.4-0.20250721051559-24595bbb54d5 // indirect
+	github.com/SSripilaipong/muto v0.0.4-0.20250809172409-4adcf1b4709e // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.7 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/xrash/smetrics v0.0.0-20240521201337-686a1a2994c1 // indirect

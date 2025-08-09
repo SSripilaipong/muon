@@ -6,7 +6,7 @@ import (
 	"github.com/SSripilaipong/muon/server/runner"
 )
 
-func newRouter(objRunner runner.Runner) *http.ServeMux {
+func newRouter(objRunner *runner.Controller) *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.Handle("POST /objects/spawn", spawnHandler(objRunner))
 	return mux

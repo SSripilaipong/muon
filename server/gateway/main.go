@@ -13,7 +13,7 @@ type Gateway struct {
 	stopChan chan struct{}
 }
 
-func New(objRunner runner.Runner) *Gateway {
+func New(objRunner *runner.Controller) *Gateway {
 	return &Gateway{
 		server: &http.Server{
 			Addr:    ":8888",
