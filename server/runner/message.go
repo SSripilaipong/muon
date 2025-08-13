@@ -4,11 +4,12 @@ import (
 	"github.com/SSripilaipong/muto/syntaxtree/result"
 )
 
-type runMessage struct {
+type runRequest struct {
 	moduleVersion string
 	node          result.SimplifiedNode
 	reply         chan<- error
 }
 
-func (m runMessage) Reply() chan<- error   { return m.reply }
-func (m runMessage) ModuleVersion() string { return m.moduleVersion }
+func (r runRequest) ModuleVersion() string       { return r.moduleVersion }
+func (r runRequest) Node() result.SimplifiedNode { return r.node }
+func (r runRequest) Reply() chan<- error         { return r.reply }

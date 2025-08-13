@@ -5,13 +5,21 @@ import (
 	"log"
 
 	"github.com/SSripilaipong/muon/common/system"
+	"github.com/SSripilaipong/muon/server/eventsource"
 	"github.com/SSripilaipong/muon/server/gateway"
 	"github.com/SSripilaipong/muon/server/runner"
 )
 
 func Start() error {
-	objRunner := runner.New()
+	es := eventsource.NewController()
+	objRunner := runner.New(es)
 	gw := gateway.New(objRunner)
+
+	err, stopEs := startEventSource(es)
+	if err != nil {
+		return err
+	}
+	defer stopEs()
 
 	err, stopGateway := startGateway(gw)
 	if err != nil {
@@ -27,11 +35,23 @@ func Start() error {
 
 	select {
 	case <-system.WaitForInterrupt():
+	case <-es.Done():
 	case <-gw.Done():
 	case <-objRunner.Done():
 	}
 
 	return nil
+}
+
+func startEventSource(eventSource *eventsource.Controller) (error, func()) {
+	if err := eventSource.Start(); err != nil {
+		return fmt.Errorf("cannot start event soruce: %w", err), nil
+	}
+	return nil, func() {
+		if err := eventSource.Stop(); err != nil {
+			log.Println("stopping event source failed:", err)
+		}
+	}
 }
 
 func startRunner(objRunner *runner.Controller) (error, func()) {

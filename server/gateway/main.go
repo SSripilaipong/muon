@@ -4,8 +4,6 @@ import (
 	"context"
 	"log"
 	"net/http"
-
-	"github.com/SSripilaipong/muon/server/runner"
 )
 
 type Gateway struct {
@@ -13,11 +11,11 @@ type Gateway struct {
 	stopChan chan struct{}
 }
 
-func New(objRunner *runner.Controller) *Gateway {
+func New(objRunner Runner) *Gateway {
 	return &Gateway{
 		server: &http.Server{
 			Addr:    ":8888",
-			Handler: newRouter(objRunner),
+			Handler: NewRouter(objRunner),
 		},
 		stopChan: make(chan struct{}),
 	}

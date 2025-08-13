@@ -4,20 +4,19 @@ import (
 	"net/http"
 
 	"github.com/SSripilaipong/go-common/rslt"
-	resultParser "github.com/SSripilaipong/muto/parser/result"
+	"github.com/SSripilaipong/muto/parser/result"
 
 	"github.com/SSripilaipong/muon/common/fn"
 	"github.com/SSripilaipong/muon/common/httpsrv"
-	"github.com/SSripilaipong/muon/server/runner"
 )
 
-func spawnHandler(objRunner *runner.Controller) http.Handler {
+func spawnHandler(objRunner Runner) http.Handler {
 	type spawnRequest struct {
 		Object string `json:"object,required"`
 	}
 
 	requestToSyntaxTree := fn.Compose3(
-		httpsrv.ResultWithBadRequest(rslt.JoinFmap(resultParser.ParseSimplifiedNode)),
+		httpsrv.ResultWithBadRequest(rslt.JoinFmap(result.ParseSimplifiedNode)),
 		rslt.Fmap(func(r spawnRequest) string { return r.Object }),
 		httpsrv.RequestJsonBody[spawnRequest],
 	)
