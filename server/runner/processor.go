@@ -40,7 +40,7 @@ func (p *processor) Process(msg any) rslt.Of[actor.Processor[any]] {
 func (p *processor) processCommittedEvent(msg es.CommittedEvent) rslt.Of[actor.Processor[any]] {
 	switch msg.EventName() {
 	case es.EventNameRun:
-		return p.processRunEvent(es.UnsafeEventToRunEvent(msg), msg.Sequence())
+		return p.processRunEvent(es.UnsafeEventToRunEvent(msg.Event), msg.Sequence())
 	default:
 		log.Printf("[server.runner] unknown event name: %T", msg.EventName())
 	}

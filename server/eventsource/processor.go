@@ -9,12 +9,13 @@ import (
 )
 
 type processor struct {
-	ctx    context.Context
-	events []CommittedEvent
+	ctx      context.Context
+	observer *observeSubject
+	events   []CommittedEvent
 }
 
-func newProcessor(ctx context.Context) actor.Processor[any] {
-	return &processor{ctx: ctx}
+func newProcessor(ctx context.Context, observer *observeSubject) actor.Processor[any] {
+	return &processor{ctx: ctx, observer: observer}
 }
 
 func (p *processor) Process(msg any) rslt.Of[actor.Processor[any]] {
@@ -35,6 +36,20 @@ func (p *processor) Atomic(f func(events []CommittedEvent) ([]CommittedEvent, bo
 		p.events = events
 	}
 	return ok
+}
+
+func (p *processor) ObserverNewEvents(f func()) {
+	seqBefore := p.LatestSequence()
+	f()
+	if len(p.events) == 0 {
+		return
+	}
+
+	startIndex := seqBefore - p.events[0].Sequence() + 1
+	if len(p.events) <= int(startIndex) {
+		return
+	}
+	p.observer.Update(p.events[startIndex:])
 }
 
 func (p *processor) LatestSequence() int64 {

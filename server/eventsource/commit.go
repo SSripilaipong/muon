@@ -22,7 +22,6 @@ type CommitResult struct {
 
 func (c *Controller) Commit(actions []Action) rslt.Of[CommitResult] {
 	reply := make(chan rslt.Of[CommitResult], 1)
-	defer close(reply)
 
 	if err := chn.SendWithTimeout[any](c.Ch(), commitRequest{
 		Actions: actions,
@@ -37,17 +36,21 @@ func (p *processor) processCommitRequest(msg commitRequest) rslt.Of[actor.Proces
 	var err error
 	var committedSequences []int64
 
-	p.Atomic(func(events []CommittedEvent) (resultEvents []CommittedEvent, ok bool) {
-		events, committedSequences, err = processCommitActions(msg.Actions, p.LatestSequence(), events)
-		return events, err == nil
+	p.ObserverNewEvents(func() {
+		p.Atomic(func(events []CommittedEvent) (resultEvents []CommittedEvent, ok bool) {
+			events, committedSequences, err = processCommitActions(msg.Actions, p.LatestSequence(), events)
+			return events, err == nil
+		})
 	})
 
-	_ = chn.SendWithTimeout(msg.Reply, func() rslt.Of[CommitResult] {
-		if err != nil {
-			return rslt.Error[CommitResult](err)
-		}
-		return rslt.Value(CommitResult{CommittedSequences: committedSequences})
-	}(), channelTimeout)
+	go func() {
+		_ = chn.SendWithTimeout(msg.Reply, func() rslt.Of[CommitResult] {
+			if err != nil {
+				return rslt.Error[CommitResult](err)
+			}
+			return rslt.Value(CommitResult{CommittedSequences: committedSequences})
+		}(), channelTimeout)
+	}()
 	fmt.Println("current events:", p.events)
 	return p.SameProcessor()
 }

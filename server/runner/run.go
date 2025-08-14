@@ -16,9 +16,8 @@ import (
 
 func (c *Controller) Run(node stResult.SimplifiedNode) error {
 	reply := make(chan error, 1)
-	defer close(reply)
 
-	if err := chn.SendWithTimeout[any](c.msgBox, runRequest{
+	if err := chn.SendWithTimeout[any](c.Ch(), runRequest{
 		moduleVersion: runnerModule.VersionDefault,
 		node:          node,
 		reply:         reply,
@@ -29,13 +28,15 @@ func (c *Controller) Run(node stResult.SimplifiedNode) error {
 }
 
 func (p *processor) processRunRequest(msg runRequest) rslt.Of[actor.Processor[any]] {
-	result := p.eventCtrl.Commit([]es.Action{
-		es.NewAppendAction(es.RunEvent{
-			ModuleVersion: msg.ModuleVersion(),
-			Node:          msg.Node(),
-		}),
-	})
-	_ = chn.SendWithTimeout(msg.Reply(), result.Error(), channelTimeout)
+	go func() {
+		result := p.eventCtrl.Commit([]es.Action{
+			es.NewAppendAction(es.RunEvent{
+				ModuleVersion: msg.ModuleVersion(),
+				Node:          msg.Node(),
+			}),
+		})
+		_ = chn.SendWithTimeout(msg.Reply(), result.Error(), channelTimeout)
+	}()
 	return rslt.Value[actor.Processor[any]](p)
 }
 
