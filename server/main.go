@@ -5,17 +5,25 @@ import (
 	"log"
 
 	"github.com/SSripilaipong/muon/common/system"
+	"github.com/SSripilaipong/muon/server/coordinator"
 	"github.com/SSripilaipong/muon/server/eventsource"
 	"github.com/SSripilaipong/muon/server/gateway"
 	"github.com/SSripilaipong/muon/server/runner"
 )
 
 func Start() error {
-	es := eventsource.NewController()
-	objRunner := runner.New(es)
-	gw := gateway.New(objRunner)
+	esCtrl := eventsource.New()
+	coordCtrl := coordinator.New(esCtrl)
+	orCtrl := runner.New(esCtrl, coordCtrl)
+	gw := gateway.New(runner.NewService(orCtrl))
 
-	err, stopEs := startEventSource(es)
+	err, stopCoord := startCoordinator(coordCtrl)
+	if err != nil {
+		return err
+	}
+	defer stopCoord()
+
+	err, stopEs := startEventSource(esCtrl)
 	if err != nil {
 		return err
 	}
@@ -27,7 +35,7 @@ func Start() error {
 	}
 	defer stopGateway()
 
-	err, stopRunner := startRunner(objRunner)
+	err, stopRunner := startRunner(orCtrl)
 	if err != nil {
 		return err
 	}
@@ -35,17 +43,28 @@ func Start() error {
 
 	select {
 	case <-system.WaitForInterrupt():
-	case <-es.Done():
+	case <-esCtrl.Done():
 	case <-gw.Done():
-	case <-objRunner.Done():
+	case <-orCtrl.Done():
 	}
 
 	return nil
 }
 
+func startCoordinator(coord *coordinator.Controller) (error, func()) {
+	if err := coord.Start(); err != nil {
+		return fmt.Errorf("cannot start coordinator: %w", err), nil
+	}
+	return nil, func() {
+		if err := coord.Stop(); err != nil {
+			log.Println("stopping coordinator failed:", err)
+		}
+	}
+}
+
 func startEventSource(eventSource *eventsource.Controller) (error, func()) {
 	if err := eventSource.Start(); err != nil {
-		return fmt.Errorf("cannot start event soruce: %w", err), nil
+		return fmt.Errorf("cannot start event source: %w", err), nil
 	}
 	return nil, func() {
 		if err := eventSource.Stop(); err != nil {

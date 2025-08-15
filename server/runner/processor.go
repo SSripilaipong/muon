@@ -7,6 +7,7 @@ import (
 	"github.com/SSripilaipong/go-common/rslt"
 
 	"github.com/SSripilaipong/muon/common/actor"
+	"github.com/SSripilaipong/muon/server/coordinator"
 	es "github.com/SSripilaipong/muon/server/eventsource"
 	runnerModule "github.com/SSripilaipong/muon/server/runner/module"
 )
@@ -14,14 +15,14 @@ import (
 type processor struct {
 	ctx              context.Context
 	moduleCollection *runnerModule.Collection
-	eventCtrl        *es.Controller
+	coord            *coordinator.Controller
 }
 
-func newProcessor(ctx context.Context, moduleCollection *runnerModule.Collection, eventCtrl *es.Controller) *processor {
+func newProcessor(ctx context.Context, moduleCollection *runnerModule.Collection, coord *coordinator.Controller) *processor {
 	return &processor{
 		ctx:              ctx,
 		moduleCollection: moduleCollection,
-		eventCtrl:        eventCtrl,
+		coord:            coord,
 	}
 }
 

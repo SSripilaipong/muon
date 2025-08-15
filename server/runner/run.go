@@ -14,10 +14,10 @@ import (
 	"github.com/SSripilaipong/muon/server/runner/object"
 )
 
-func (c *Controller) Run(node stResult.SimplifiedNode) error {
+func (s Service) Run(node stResult.SimplifiedNode) error {
 	reply := make(chan error, 1)
 
-	if err := chn.SendWithTimeout[any](c.Ch(), runRequest{
+	if err := chn.SendWithTimeout[any](s.ctrl.Ch(), runRequest{
 		moduleVersion: runnerModule.VersionDefault,
 		node:          node,
 		reply:         reply,
@@ -29,13 +29,12 @@ func (c *Controller) Run(node stResult.SimplifiedNode) error {
 
 func (p *processor) processRunRequest(msg runRequest) rslt.Of[actor.Processor[any]] {
 	go func() {
-		result := p.eventCtrl.Commit([]es.Action{
+		_ = chn.SendWithTimeout(msg.Reply(), p.coord.Commit([]es.Action{
 			es.NewAppendAction(es.RunEvent{
 				ModuleVersion: msg.ModuleVersion(),
 				Node:          msg.Node(),
 			}),
-		})
-		_ = chn.SendWithTimeout(msg.Reply(), result.Error(), channelTimeout)
+		}), channelTimeout)
 	}()
 	return rslt.Value[actor.Processor[any]](p)
 }

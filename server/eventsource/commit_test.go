@@ -13,13 +13,12 @@ func Test_processCommitActions(t *testing.T) {
 			NewCommitted(RunEvent{ModuleVersion: "older"}, 2),
 		}
 
-		resultEvents, commitSequences, err := processCommitActions([]Action{
+		resultEvents, err := processCommitActions([]Action{
 			NewAppendAction(RunEvent{ModuleVersion: "newer"}),
 			NewAppendAction(RunEvent{ModuleVersion: "newest"}),
 		}, 2, existingEvents)
 
 		assert.Nil(t, err)
-		assert.Equal(t, []int64{3, 4}, commitSequences)
 		assert.Equal(t, CommittedEvent{
 			Event:    RunEvent{ModuleVersion: "newer"},
 			sequence: 3,
@@ -36,7 +35,7 @@ func Test_processCommitActions(t *testing.T) {
 			NewCommitted(RunEvent{}, 2),
 		}
 
-		_, _, err := processCommitActions([]Action{
+		_, err := processCommitActions([]Action{
 			NewAppendAction(RunEvent{}, AppendAtSequence(3)),
 		}, 2, existingEvents)
 

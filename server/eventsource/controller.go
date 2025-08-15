@@ -11,7 +11,7 @@ type Controller struct {
 	observer *observeSubject
 }
 
-func NewController() *Controller {
+func New() *Controller {
 	observer := newObserveSubject()
 	return &Controller{
 		Controller: actor.NewController[any](func(ctx context.Context) actor.Processor[any] {

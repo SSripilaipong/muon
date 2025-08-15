@@ -10,4 +10,4 @@ type Runner interface { // TODO no need?
 	Run(node result.SimplifiedNode) error
 }
 
-var _ Runner = &runner.Controller{}
+var _ Runner = runner.Service{}
