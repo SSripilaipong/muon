@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"context"
 	"fmt"
 	"log"
 
@@ -9,32 +10,46 @@ import (
 
 	"github.com/SSripilaipong/muon/common/actor"
 	"github.com/SSripilaipong/muon/common/chn"
+	"github.com/SSripilaipong/muon/common/ctxs"
 	es "github.com/SSripilaipong/muon/server/eventsource"
 	runnerModule "github.com/SSripilaipong/muon/server/runner/module"
 	"github.com/SSripilaipong/muon/server/runner/object"
 )
 
-func (s Service) Run(node stResult.SimplifiedNode) error {
+func (s Service) Run(ctx context.Context, node stResult.SimplifiedNode) error {
 	reply := make(chan error, 1)
 
-	if err := chn.SendWithTimeout[any](s.ctrl.Ch(), runRequest{
-		moduleVersion: runnerModule.VersionDefault,
-		node:          node,
-		reply:         reply,
-	}, channelTimeout); err != nil {
-		return fmt.Errorf("cannot connect to runner: %w", err)
-	}
-	return chn.ReceiveWithTimeout(reply, channelTimeout).Error()
+	var err error
+	ctxs.TimeoutScope(ctx, channelTimeout, func(ctx context.Context) {
+		err = chn.SendWithContext[any](ctx, s.ctrl.Ch(), runRequest{
+			moduleVersion: runnerModule.VersionDefault,
+			node:          node,
+			reply:         reply,
+		})
+		if err != nil {
+			err = fmt.Errorf("cannot connect to runner: %w", err)
+		}
+	})
+
+	var response error
+	ctxs.TimeoutScope(ctx, channelTimeout, func(ctx context.Context) {
+		response = rslt.JoinError(chn.ReceiveWithContext(ctx, reply))
+	})
+	return response
 }
 
 func (p *processor) processRunRequest(msg runRequest) rslt.Of[actor.Processor[any]] {
 	go func() {
-		_ = chn.SendWithTimeout(msg.Reply(), p.coord.Commit([]es.Action{
+		err := p.coord.Commit(p.ctx, []es.Action{
 			es.NewAppendAction(es.RunEvent{
 				ModuleVersion: msg.ModuleVersion(),
 				Node:          msg.Node(),
 			}),
-		}), channelTimeout)
+		})
+		if err != nil {
+			err = fmt.Errorf("cannot commit: %w", err)
+		}
+		_ = chn.SendWithTimeout(msg.Reply(), err, channelTimeout)
 	}()
 	return rslt.Value[actor.Processor[any]](p)
 }

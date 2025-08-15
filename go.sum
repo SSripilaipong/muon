@@ -1,5 +1,7 @@
 github.com/SSripilaipong/go-common v0.0.0-20250813151214-1d471e1eba5c h1:cHdyw6HVBe5hk0MRBfxsJbR8f62miAN5MUI34NuxWpM=
 github.com/SSripilaipong/go-common v0.0.0-20250813151214-1d471e1eba5c/go.mod h1:CKGmumotwLLhe9l1S954J56o1kbQUuCY8PjeEPokf5s=
+github.com/SSripilaipong/go-common v0.0.0-20250815172413-149b90af1921 h1:rEt1IEEWptYupTlon2jKFr/HwaH0VxXTuI6oKpXw+DM=
+github.com/SSripilaipong/go-common v0.0.0-20250815172413-149b90af1921/go.mod h1:CKGmumotwLLhe9l1S954J56o1kbQUuCY8PjeEPokf5s=
 github.com/SSripilaipong/muto v0.0.4-0.20250813151347-62fbe3b1484e h1:XfIze1nVz86uyVTo2h+JGLfjYoS9bGsceEzFNEyBnI0=
 github.com/SSripilaipong/muto v0.0.4-0.20250813151347-62fbe3b1484e/go.mod h1:c4jXYMo9TA596JOaYHuJD14Tl9eXBQN6bwEmldasN1c=
 github.com/chzyer/logex v1.2.1 h1:XHDu3E6q+gdHgsdTPH6ImJMIp436vR6MPtH8gP05QzM=

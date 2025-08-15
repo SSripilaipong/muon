@@ -3,7 +3,7 @@ module github.com/SSripilaipong/muon
 go 1.23.8
 
 require (
-	github.com/SSripilaipong/go-common v0.0.0-20250813151214-1d471e1eba5c
+	github.com/SSripilaipong/go-common v0.0.0-20250815172413-149b90af1921
 	github.com/SSripilaipong/muto v0.0.4-0.20250813151347-62fbe3b1484e
 	github.com/chzyer/readline v1.5.1
 	github.com/stretchr/testify v1.9.0

@@ -1,12 +1,14 @@
 package eventsource
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/SSripilaipong/go-common/rslt"
 
 	"github.com/SSripilaipong/muon/common/actor"
 	"github.com/SSripilaipong/muon/common/chn"
+	"github.com/SSripilaipong/muon/common/ctxs"
 )
 
 type commitRequest struct {
@@ -16,16 +18,25 @@ type commitRequest struct {
 
 type Action any
 
-func (c *Controller) Commit(actions []Action) error {
+func (c *Controller) Commit(ctx context.Context, actions []Action) error {
 	reply := make(chan error, 1)
 
-	if err := chn.SendWithTimeout[any](c.Ch(), commitRequest{
-		Actions: actions,
-		Reply:   reply,
-	}, channelTimeout); err != nil {
-		return fmt.Errorf("cannot connect to runner: %w", err)
+	var err error
+	ctxs.TimeoutScope(ctx, channelTimeout, func(ctx context.Context) {
+		err = chn.SendWithContext[any](ctx, c.Ch(), commitRequest{
+			Actions: actions,
+			Reply:   reply,
+		})
+	})
+	if err != nil {
+		return fmt.Errorf("cannot connect to event source: %w", err)
 	}
-	return chn.ReceiveWithTimeout(reply, channelTimeout).Error()
+
+	var response error
+	ctxs.TimeoutScope(ctx, channelTimeout, func(ctx context.Context) {
+		response = rslt.JoinError(chn.ReceiveWithContext(ctx, reply))
+	})
+	return response
 }
 
 func (p *processor) processCommitRequest(msg commitRequest) rslt.Of[actor.Processor[any]] {

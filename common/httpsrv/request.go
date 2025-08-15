@@ -1,6 +1,7 @@
 package httpsrv
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -20,9 +21,14 @@ func RequestBody(request *http.Request) rslt.Of[io.ReadCloser] {
 }
 
 func RequestJsonBody[T any](request *http.Request) rslt.Of[T] {
+	request.Context()
 	return fn.Compose3(
 		ResultWithBadRequest(rslt.JoinFmap(jsonutil.Read[T])),
 		rslt.Fmap(ioutil.ToReader[io.ReadCloser]),
 		RequestBody,
 	)(request)
+}
+
+func RequestContext(request *http.Request) context.Context {
+	return request.Context()
 }
