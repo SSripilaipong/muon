@@ -19,17 +19,14 @@ import (
 func (s Service) Run(ctx context.Context, node stResult.SimplifiedNode) error {
 	reply := make(chan error, 1)
 
-	var err error
-	ctxs.TimeoutScope(ctx, channelTimeout, func(ctx context.Context) {
-		err = chn.SendWithContext[any](ctx, s.ctrl.Ch(), runRequest{
-			moduleVersion: runnerModule.VersionDefault,
-			node:          node,
-			reply:         reply,
-		})
-		if err != nil {
-			err = fmt.Errorf("cannot connect to runner: %w", err)
-		}
-	})
+	err := chn.SendWithContextTimeout[any](ctx, s.ctrl.Ch(), runRequest{
+		moduleVersion: runnerModule.VersionDefault,
+		node:          node,
+		reply:         reply,
+	}, channelTimeout)
+	if err != nil {
+		err = fmt.Errorf("cannot connect to runner: %w", err)
+	}
 
 	var response error
 	ctxs.TimeoutScope(ctx, channelTimeout, func(ctx context.Context) {

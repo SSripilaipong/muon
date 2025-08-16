@@ -25,13 +25,10 @@ func (c *Controller) LocalCommit(ctx context.Context, actions []Action) error {
 func (c *Controller) Commit(ctx context.Context, actions []Action) error {
 	reply := make(chan error, 1)
 
-	var err error
-	ctxs.TimeoutScope(ctx, channelTimeout, func(ctx context.Context) {
-		err = chn.SendWithContext[any](ctx, c.Ch(), commitRequest{
-			Actions: actions,
-			Reply:   reply,
-		})
-	})
+	err := chn.SendWithContextTimeout[any](ctx, c.Ch(), commitRequest{
+		Actions: actions,
+		Reply:   reply,
+	}, channelTimeout)
 	if err != nil {
 		return fmt.Errorf("cannot connect to event source: %w", err)
 	}
