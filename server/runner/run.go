@@ -37,7 +37,7 @@ func (s Service) Run(ctx context.Context, node stResult.SimplifiedNode) error {
 
 func (p *processor) processRunRequest(msg runRequest) rslt.Of[actor.Processor[any]] {
 	go func() {
-		err := p.coord.Commit(p.ctx, []es.Action{
+		err := p.coord.Append(p.ctx, []es.Action{
 			es.NewAppendAction(es.RunEvent{
 				ModuleVersion: msg.ModuleVersion(),
 				Node:          msg.Node(),

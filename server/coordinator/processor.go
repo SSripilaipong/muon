@@ -20,8 +20,8 @@ func newProcessor(ctx context.Context, local LocalNode) *processor {
 
 func (p *processor) Process(msg any) rslt.Of[actor.Processor[any]] {
 	switch msg := msg.(type) {
-	case commitRequest:
-		return p.processCommitRequest(msg)
+	case appendRequest:
+		return p.processAppendRequest(msg)
 	}
 	return p.SameProcessor()
 }

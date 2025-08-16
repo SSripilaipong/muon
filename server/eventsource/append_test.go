@@ -6,14 +6,14 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func Test_processCommitActions(t *testing.T) {
+func Test_processAppendActions(t *testing.T) {
 	t.Run("should append events", func(t *testing.T) {
 		existingEvents := []CommittedEvent{
 			NewCommitted(RunEvent{ModuleVersion: "oldest"}, 1),
 			NewCommitted(RunEvent{ModuleVersion: "older"}, 2),
 		}
 
-		resultEvents, err := processCommitActions([]Action{
+		resultEvents, err := processAppendActions([]Action{
 			NewAppendAction(RunEvent{ModuleVersion: "newer"}),
 			NewAppendAction(RunEvent{ModuleVersion: "newest"}),
 		}, 2, existingEvents)
@@ -35,7 +35,7 @@ func Test_processCommitActions(t *testing.T) {
 			NewCommitted(RunEvent{}, 2),
 		}
 
-		_, err := processCommitActions([]Action{
+		_, err := processAppendActions([]Action{
 			NewAppendAction(RunEvent{}, AppendAtSequence(3)),
 		}, 2, existingEvents)
 

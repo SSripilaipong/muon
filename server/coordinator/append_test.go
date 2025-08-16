@@ -10,7 +10,7 @@ import (
 	"github.com/SSripilaipong/muon/common/chn"
 )
 
-func TestCommit_guaranteeQuorumSuccess(t *testing.T) {
+func TestAppend_guaranteeQuorumSuccess(t *testing.T) {
 	t.Run("should return success for closed channel", func(t *testing.T) {
 		ch := make(chan error)
 		close(ch)

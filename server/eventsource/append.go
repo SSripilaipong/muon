@@ -11,21 +11,21 @@ import (
 	"github.com/SSripilaipong/muon/common/ctxs"
 )
 
-type commitRequest struct {
+type appendRequest struct {
 	Actions []Action
 	Reply   chan error
 }
 
 type Action any
 
-func (c *Controller) LocalCommit(ctx context.Context, actions []Action) error {
-	return c.Commit(ctx, actions)
+func (c *Controller) LocalAppend(ctx context.Context, actions []Action) error {
+	return c.Append(ctx, actions)
 }
 
-func (c *Controller) Commit(ctx context.Context, actions []Action) error {
+func (c *Controller) Append(ctx context.Context, actions []Action) error {
 	reply := make(chan error, 1)
 
-	err := chn.SendWithContextTimeout[any](ctx, c.Ch(), commitRequest{
+	err := chn.SendWithContextTimeout[any](ctx, c.Ch(), appendRequest{
 		Actions: actions,
 		Reply:   reply,
 	}, channelTimeout)
@@ -40,12 +40,12 @@ func (c *Controller) Commit(ctx context.Context, actions []Action) error {
 	return response
 }
 
-func (p *processor) processCommitRequest(msg commitRequest) rslt.Of[actor.Processor[any]] {
+func (p *processor) processAppendRequest(msg appendRequest) rslt.Of[actor.Processor[any]] {
 	var err error
 
 	p.ObserverNewEvents(func() {
-		p.Atomic(func(events []CommittedEvent) (resultEvents []CommittedEvent, ok bool) {
-			events, err = processCommitActions(msg.Actions, p.LatestSequence(), events)
+		p.Atomic(func(events []CommittedEvent) (resultEvents []CommittedEvent, ok bool) { // TODO should not append to committed events
+			events, err = processAppendActions(msg.Actions, p.LatestSequence(), events)
 			return events, err == nil
 		})
 	})
@@ -57,7 +57,7 @@ func (p *processor) processCommitRequest(msg commitRequest) rslt.Of[actor.Proces
 	return p.SameProcessor()
 }
 
-func processCommitActions(actions []Action, seq int64, events []CommittedEvent) ([]CommittedEvent, error) {
+func processAppendActions(actions []Action, seq int64, events []CommittedEvent) ([]CommittedEvent, error) {
 	var cs []int64
 	for _, action := range actions {
 		switch action := action.(type) {

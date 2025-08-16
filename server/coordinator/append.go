@@ -13,15 +13,15 @@ import (
 	es "github.com/SSripilaipong/muon/server/eventsource"
 )
 
-type commitRequest struct {
+type appendRequest struct {
 	Actions []es.Action
 	Reply   chan error
 }
 
-func (c *Controller) Commit(ctx context.Context, actions []es.Action) error {
+func (c *Controller) Append(ctx context.Context, actions []es.Action) error {
 	reply := make(chan error, 1)
 
-	err := chn.SendWithContextTimeout[any](ctx, c.Ch(), commitRequest{
+	err := chn.SendWithContextTimeout[any](ctx, c.Ch(), appendRequest{
 		Actions: actions,
 		Reply:   reply,
 	}, channelTimeout)
@@ -36,17 +36,17 @@ func (c *Controller) Commit(ctx context.Context, actions []es.Action) error {
 	return response
 }
 
-func (p *processor) processCommitRequest(msg commitRequest) rslt.Of[actor.Processor[any]] {
+func (p *processor) processAppendRequest(msg appendRequest) rslt.Of[actor.Processor[any]] {
 	go func() {
 		_ = chn.SendWithTimeout(msg.Reply, func() error {
-			if err := p.localNode.LocalCommit(p.ctx, msg.Actions); err != nil {
-				return fmt.Errorf("cannot commit to local node: %w", err)
+			if err := p.localNode.LocalAppend(p.ctx, msg.Actions); err != nil {
+				return fmt.Errorf("cannot append to local node: %w", err)
 			}
 
-			responses := prl.Collect(p.ctx, commitsFromNodes(p.ctx, p.nodes, msg.Actions)...)
+			responses := prl.Collect(p.ctx, appendingFromNodes(p.ctx, p.nodes, msg.Actions)...)
 			ok, _ := guaranteeQuorumSuccess(p.ctx, len(p.nodes), responses)
 			if !ok {
-				return fmt.Errorf("cannot guarantee quorum commit")
+				return fmt.Errorf("cannot guarantee quorum append")
 			}
 
 			return nil
@@ -55,10 +55,10 @@ func (p *processor) processCommitRequest(msg commitRequest) rslt.Of[actor.Proces
 	return p.SameProcessor()
 }
 
-func commitsFromNodes(ctx context.Context, nodes []Node, actions []es.Action) (result []func() error) {
+func appendingFromNodes(ctx context.Context, nodes []Node, actions []es.Action) (result []func() error) {
 	for _, node := range nodes {
 		result = append(result, func() error {
-			return node.Commit(ctx, actions)
+			return node.Append(ctx, actions)
 		})
 	}
 	return result
