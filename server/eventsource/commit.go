@@ -18,6 +18,10 @@ type commitRequest struct {
 
 type Action any
 
+func (c *Controller) LocalCommit(ctx context.Context, actions []Action) error {
+	return c.Commit(ctx, actions)
+}
+
 func (c *Controller) Commit(ctx context.Context, actions []Action) error {
 	reply := make(chan error, 1)
 

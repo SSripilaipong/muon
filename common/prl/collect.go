@@ -5,7 +5,7 @@ import (
 	"sync"
 )
 
-func Collect[T any](ctx context.Context, fs ...func() T) <-chan T { // TODO unit test
+func Collect[T any](ctx context.Context, fs ...func() T) <-chan T {
 	result := make(chan T, len(fs))
 	wg := &sync.WaitGroup{}
 	for _, f := range fs {

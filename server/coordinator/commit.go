@@ -41,13 +41,17 @@ func (c *Controller) Commit(ctx context.Context, actions []es.Action) error {
 
 func (p *processor) processCommitRequest(msg commitRequest) rslt.Of[actor.Processor[any]] {
 	go func() {
-		responses := prl.Collect(p.ctx, commitsFromNodes(p.ctx, p.nodes, msg.Actions)...) // TODO should ask local first before telling other nodes
-		ok, _ := guaranteeQuorumSuccess(p.ctx, len(p.nodes), responses)
-
 		_ = chn.SendWithTimeout(msg.Reply, func() error {
-			if !ok {
-				return fmt.Errorf("cannot commit: failed to guarantee quorum commit")
+			if err := p.localNode.LocalCommit(p.ctx, msg.Actions); err != nil {
+				return fmt.Errorf("cannot commit to local node: %w", err)
 			}
+
+			responses := prl.Collect(p.ctx, commitsFromNodes(p.ctx, p.nodes, msg.Actions)...)
+			ok, _ := guaranteeQuorumSuccess(p.ctx, len(p.nodes), responses)
+			if !ok {
+				return fmt.Errorf("cannot guarantee quorum commit")
+			}
+
 			return nil
 		}(), channelTimeout)
 	}()

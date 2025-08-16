@@ -11,7 +11,7 @@ type Controller struct {
 	local Node
 }
 
-func New(local Node) *Controller {
+func New(local LocalNode) *Controller {
 	return &Controller{
 		Controller: actor.NewController[any](func(ctx context.Context) actor.Processor[any] {
 			return newProcessor(ctx, local)
