@@ -29,6 +29,6 @@ func SendWithContext[T any](ctx context.Context, c chan<- T, x T) error {
 	case c <- x:
 		return nil
 	case <-ctx.Done():
-		return nil
+		return ctx.Err()
 	}
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/SSripilaipong/muon/common/actor"
 	"github.com/SSripilaipong/muon/common/chn"
 	"github.com/SSripilaipong/muon/common/ctxs"
+	"github.com/SSripilaipong/muon/common/prl"
 	es "github.com/SSripilaipong/muon/server/eventsource"
 )
 
@@ -40,11 +41,49 @@ func (c *Controller) Commit(ctx context.Context, actions []es.Action) error {
 
 func (p *processor) processCommitRequest(msg commitRequest) rslt.Of[actor.Processor[any]] {
 	go func() {
-		err := p.local.Commit(p.ctx, msg.Actions)
-		if err != nil {
-			err = fmt.Errorf("cannot commit: %w", err)
-		}
-		_ = chn.SendWithTimeout(msg.Reply, err, channelTimeout)
+		responses := prl.Collect(p.ctx, commitsFromNodes(p.ctx, p.nodes, msg.Actions)...) // TODO should ask local first before telling other nodes
+		ok, _ := guaranteeQuorumSuccess(p.ctx, len(p.nodes), responses)
+
+		_ = chn.SendWithTimeout(msg.Reply, func() error {
+			if !ok {
+				return fmt.Errorf("cannot commit: failed to guarantee quorum commit")
+			}
+			return nil
+		}(), channelTimeout)
 	}()
 	return p.SameProcessor()
+}
+
+func commitsFromNodes(ctx context.Context, nodes []Node, actions []es.Action) (result []func() error) {
+	for _, node := range nodes {
+		result = append(result, func() error {
+			return node.Commit(ctx, actions)
+		})
+	}
+	return result
+}
+
+func guaranteeQuorumSuccess(ctx context.Context, n int, sources <-chan error) (bool, []error) {
+	defer func() { go func() { chn.Drain(sources) }() }()
+
+	var errs []error
+loop:
+	for {
+		select {
+		case err, isOpen := <-sources:
+			if !isOpen {
+				break loop
+			}
+
+			if err != nil {
+				errs = append(errs, err)
+			}
+			if len(errs) > n/2 {
+				return false, errs
+			}
+		case <-ctx.Done():
+			return false, errs
+		}
+	}
+	return true, errs
 }
