@@ -9,19 +9,25 @@ import (
 )
 
 type processor struct {
-	ctx      context.Context
-	observer *observeSubject
-	events   []CommittedEvent
+	ctx         context.Context
+	observer    *observeSubject
+	events      []AppendedEvent
+	commitUntil uint64
 }
 
 func newProcessor(ctx context.Context, observer *observeSubject) actor.Processor[any] {
-	return &processor{ctx: ctx, observer: observer}
+	return &processor{
+		ctx:      ctx,
+		observer: observer,
+	}
 }
 
 func (p *processor) Process(msg any) rslt.Of[actor.Processor[any]] {
 	switch msg := msg.(type) {
 	case appendRequest:
 		return p.processAppendRequest(msg)
+	case markCommitUntilRequest:
+		return p.processMarkCommitUntil(msg)
 	}
 	return p.SameProcessor()
 }
@@ -30,29 +36,15 @@ func (p *processor) SameProcessor() rslt.Of[actor.Processor[any]] {
 	return rslt.Value[actor.Processor[any]](p)
 }
 
-func (p *processor) Atomic(f func(events []CommittedEvent) ([]CommittedEvent, bool)) bool {
-	events, ok := f(p.events)
+func (p *processor) Atomic(f func(events []AppendedEvent) ([]AppendedEvent, bool)) bool {
+	eventsToAppend, ok := f(p.events)
 	if ok {
-		p.events = events
+		p.events = append(p.events, eventsToAppend...)
 	}
 	return ok
 }
 
-func (p *processor) ObserverNewEvents(f func()) {
-	seqBefore := p.LatestSequence()
-	f()
-	if len(p.events) == 0 {
-		return
-	}
-
-	startIndex := seqBefore - p.events[0].Sequence() + 1
-	if len(p.events) <= int(startIndex) {
-		return
-	}
-	p.observer.Update(p.events[startIndex:])
-}
-
-func (p *processor) LatestSequence() int64 {
+func (p *processor) LatestSequence() uint64 {
 	if len(p.events) == 0 {
 		return 0
 	}

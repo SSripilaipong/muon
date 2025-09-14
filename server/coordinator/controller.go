@@ -8,7 +8,7 @@ import (
 
 type Controller struct {
 	*actor.Controller[any]
-	local Node
+	local LocalNode
 }
 
 func New(local LocalNode) *Controller {

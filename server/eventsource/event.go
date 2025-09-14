@@ -1,9 +1,14 @@
 package eventsource
 
-import "github.com/SSripilaipong/muto/syntaxtree/result"
+import (
+	"github.com/SSripilaipong/muto/syntaxtree/result"
+
+	"github.com/SSripilaipong/muon/common/randutil"
+)
 
 type Event interface {
 	EventName() EventName
+	Hash() uint64
 }
 
 type EventName string
@@ -12,27 +17,39 @@ const (
 	EventNameRun = "RUN"
 )
 
-type CommittedEvent struct {
-	Event    Event
-	sequence int64
+type AppendedEvent struct {
+	event    Event
+	sequence uint64
 }
 
-func NewCommitted[E Event](event E, sequence int64) CommittedEvent {
-	return CommittedEvent{
-		Event:    event,
+func NewAppended[E Event](event E, sequence uint64) AppendedEvent {
+	return AppendedEvent{
+		event:    event,
 		sequence: sequence,
 	}
 }
 
-func (c CommittedEvent) Sequence() int64      { return c.sequence }
-func (c CommittedEvent) EventName() EventName { return c.Event.EventName() }
+func (e AppendedEvent) Sequence() uint64     { return e.sequence }
+func (e AppendedEvent) Event() Event         { return e.event }
+func (e AppendedEvent) EventName() EventName { return e.Event().EventName() }
+func (e AppendedEvent) Hash() uint64         { return e.Event().Hash() }
 
 type RunEvent struct {
 	ModuleVersion string
 	Node          result.SimplifiedNode
+	hash          uint64
+}
+
+func NewRunEvent(moduleVersion string, node result.SimplifiedNode) RunEvent {
+	return RunEvent{
+		ModuleVersion: moduleVersion,
+		Node:          node,
+		hash:          randutil.Uint64(),
+	}
 }
 
 func (RunEvent) EventName() EventName { return EventNameRun }
+func (e RunEvent) Hash() uint64       { return e.hash } // TODO implement hash function
 
 func UnsafeEventToRunEvent(e Event) RunEvent {
 	return e.(RunEvent)

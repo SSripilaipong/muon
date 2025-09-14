@@ -1,7 +1,7 @@
 package eventsource
 
 type Observer interface {
-	Update(events []CommittedEvent)
+	Update(events []AppendedEvent)
 }
 
 type observeSubject struct {
@@ -16,7 +16,7 @@ func (o *observeSubject) Attach(observer Observer) {
 	o.observers = append(o.observers, observer)
 }
 
-func (o *observeSubject) Update(events []CommittedEvent) {
+func (o *observeSubject) Update(events []AppendedEvent) {
 	for _, observer := range o.observers {
 		go observer.Update(events)
 	}

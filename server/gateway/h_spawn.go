@@ -30,6 +30,6 @@ func spawnHandler(objRunner Runner) http.Handler {
 		if err = objRunner.Run(request.Context(), node); err != nil {
 			return httpsrv.RespondErrorWriter(err)
 		}
-		return httpsrv.RespondMessageWriter(http.StatusCreated, "spawned")
+		return httpsrv.RespondMessageWriter(http.StatusAccepted, "submitted")
 	})
 }

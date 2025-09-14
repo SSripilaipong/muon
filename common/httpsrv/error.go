@@ -4,29 +4,16 @@ import (
 	"net/http"
 
 	"github.com/SSripilaipong/go-common/rslt"
+
+	"github.com/SSripilaipong/muon/common/rsltutil"
 )
 
 func ResultWithBadRequest[A, B any](f func(rslt.Of[A]) rslt.Of[B]) func(rslt.Of[A]) rslt.Of[B] {
-	return WrapError[A, B](BadRequest)(f)
+	return rsltutil.WrapErrorFn[A, B](BadRequest)(f)
 }
 
 func BadRequest(err error) error {
 	return NewErrorWithStatusCode(http.StatusBadRequest, err)
-}
-
-func WrapError[A, B any](w func(error) error) func(func(of rslt.Of[A]) rslt.Of[B]) func(rslt.Of[A]) rslt.Of[B] {
-	return func(f func(rslt.Of[A]) rslt.Of[B]) func(rslt.Of[A]) rslt.Of[B] {
-		return func(x rslt.Of[A]) rslt.Of[B] {
-			isErrorBefore := x.IsErr()
-			y := f(x)
-			isErrorAfter := y.IsErr()
-
-			if !isErrorBefore && isErrorAfter {
-				return rslt.Error[B](w(y.Error()))
-			}
-			return y
-		}
-	}
 }
 
 type ErrorWithStatusCode struct {

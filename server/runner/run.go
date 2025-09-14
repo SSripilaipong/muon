@@ -37,11 +37,8 @@ func (s Service) Run(ctx context.Context, node stResult.SimplifiedNode) error {
 
 func (p *processor) processRunRequest(msg runRequest) rslt.Of[actor.Processor[any]] {
 	go func() {
-		err := p.coord.Append(p.ctx, []es.Action{
-			es.NewAppendAction(es.RunEvent{
-				ModuleVersion: msg.ModuleVersion(),
-				Node:          msg.Node(),
-			}),
+		err := p.coord.Submit(p.ctx, []es.Action{
+			es.NewAppendAction(es.NewRunEvent(msg.ModuleVersion(), msg.Node())),
 		})
 		if err != nil {
 			err = fmt.Errorf("cannot commit: %w", err)
@@ -51,7 +48,7 @@ func (p *processor) processRunRequest(msg runRequest) rslt.Of[actor.Processor[an
 	return rslt.Value[actor.Processor[any]](p)
 }
 
-func (p *processor) processRunEvent(event es.RunEvent, seq int64) rslt.Of[actor.Processor[any]] {
+func (p *processor) processRunEvent(event es.RunEvent, seq uint64) rslt.Of[actor.Processor[any]] {
 	if err := func() error {
 		mod, err := p.moduleCollection.Get(event.ModuleVersion).Return()
 		if err != nil {

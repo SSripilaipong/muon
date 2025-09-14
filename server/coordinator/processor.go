@@ -20,10 +20,14 @@ func newProcessor(ctx context.Context, local LocalNode) *processor {
 
 func (p *processor) Process(msg any) rslt.Of[actor.Processor[any]] {
 	switch msg := msg.(type) {
-	case appendRequest:
-		return p.processAppendRequest(msg)
+	case submitRequest:
+		return p.processSubmitRequest(msg)
 	}
 	return p.SameProcessor()
+}
+
+func (p *processor) NumberOfOnlineNodes() int {
+	return len(p.nodes) + 1
 }
 
 func (p *processor) SameProcessor() rslt.Of[actor.Processor[any]] {

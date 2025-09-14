@@ -30,7 +30,7 @@ func (p *processor) Process(msg any) rslt.Of[actor.Processor[any]] {
 	switch msg := msg.(type) {
 	case runRequest:
 		return p.processRunRequest(msg)
-	case es.CommittedEvent:
+	case es.AppendedEvent:
 		return p.processCommittedEvent(msg)
 	default:
 		log.Printf("[server.runner] unknown message type: %T", msg)
@@ -38,10 +38,10 @@ func (p *processor) Process(msg any) rslt.Of[actor.Processor[any]] {
 	return p.SameProcessor()
 }
 
-func (p *processor) processCommittedEvent(msg es.CommittedEvent) rslt.Of[actor.Processor[any]] {
+func (p *processor) processCommittedEvent(msg es.AppendedEvent) rslt.Of[actor.Processor[any]] {
 	switch msg.EventName() {
 	case es.EventNameRun:
-		return p.processRunEvent(es.UnsafeEventToRunEvent(msg.Event), msg.Sequence())
+		return p.processRunEvent(es.UnsafeEventToRunEvent(msg.Event()), msg.Sequence())
 	default:
 		log.Printf("[server.runner] unknown event name: %T", msg.EventName())
 	}

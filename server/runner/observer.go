@@ -15,7 +15,7 @@ func newEventSourceObserver(ctrl *Controller) es.Observer {
 	return EventSourceObserver{ctrl: ctrl}
 }
 
-func (ob EventSourceObserver) Update(events []es.CommittedEvent) {
+func (ob EventSourceObserver) Update(events []es.AppendedEvent) {
 	for _, event := range events {
 		if isRunnerEventName(event.EventName()) {
 			if err := chn.SendWithTimeout[any](ob.ctrl.Ch(), event, channelTimeout); err != nil {

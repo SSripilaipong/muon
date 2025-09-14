@@ -4,7 +4,7 @@ import "github.com/SSripilaipong/go-common/optional"
 
 type AppendAction struct {
 	event            Event
-	requiredSequence optional.Of[int64]
+	requiredSequence optional.Of[uint64]
 }
 
 func NewAppendAction(event Event, opts ...func(*AppendAction)) AppendAction {
@@ -15,7 +15,7 @@ func NewAppendAction(event Event, opts ...func(*AppendAction)) AppendAction {
 	return act
 }
 
-func AppendAtSequence(seq int64) func(*AppendAction) {
+func AppendAtSequence(seq uint64) func(*AppendAction) {
 	return func(a *AppendAction) {
 		a.requiredSequence = optional.Value(seq)
 	}
