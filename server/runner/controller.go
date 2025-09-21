@@ -22,7 +22,11 @@ type Controller struct {
 func New(esStore *es.Store) *Controller {
 	ctrl := &Controller{}
 	ctrl.Controller = actor.NewController[any](func(ctx context.Context) actor.Processor[any] {
-		return newProcessor(ctx, runnerModule.NewCollection(), esStore, ctrl.coord)
+		coord := ctrl.coord
+		if coord == nil {
+			panic("runner coordinator is not set")
+		}
+		return newProcessor(ctx, runnerModule.NewCollection(), esStore, coord)
 	})
 	esStore.AddObserver(newEventSourceObserver(ctrl))
 	return ctrl

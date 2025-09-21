@@ -16,7 +16,7 @@ import (
 	"github.com/SSripilaipong/muon/server/runner/object"
 )
 
-func (s *Service) Run(ctx context.Context, node stResult.SimplifiedNode) error {
+func (s Service) Run(ctx context.Context, node stResult.SimplifiedNode) error {
 	reply := make(chan error, 1)
 
 	err := chn.SendWithContextTimeout[any](ctx, s.ctrl.Ch(), runRequest{
