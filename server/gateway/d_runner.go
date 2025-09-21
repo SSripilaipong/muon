@@ -12,4 +12,4 @@ type Runner interface {
 	Run(ctx context.Context, node result.SimplifiedNode) error
 }
 
-var _ Runner = runner.Service{}
+var _ Runner = (*runner.Service)(nil)

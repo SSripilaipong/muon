@@ -15,8 +15,9 @@ func Start() error {
 	esStore := eventsource.New()
 	orCtrl := runner.New(esStore)
 	coordCtrl := coordinator.New(orCtrl)
-	orCtrl.SetCoordinator(coordCtrl)
-	gw := gateway.New(runner.NewService(orCtrl))
+	runnerSvc := runner.NewService(orCtrl)
+	runnerSvc.SetCoordinator(coordCtrl)
+	gw := gateway.New(runnerSvc)
 
 	err, stopCoord := startCoordinator(coordCtrl)
 	if err != nil {

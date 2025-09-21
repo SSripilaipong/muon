@@ -16,22 +16,18 @@ type processor struct {
 	ctx              context.Context
 	moduleCollection *runnerModule.Collection
 	esStore          *es.Store
-	ctrl             *Controller
 }
 
-func newProcessor(ctx context.Context, moduleCollection *runnerModule.Collection, esStore *es.Store, ctrl *Controller) *processor {
+func newProcessor(ctx context.Context, moduleCollection *runnerModule.Collection, esStore *es.Store) *processor {
 	return &processor{
 		ctx:              ctx,
 		moduleCollection: moduleCollection,
 		esStore:          esStore,
-		ctrl:             ctrl,
 	}
 }
 
 func (p *processor) Process(msg any) rslt.Of[actor.Processor[any]] {
 	switch msg := msg.(type) {
-	case runRequest:
-		return p.processRunRequest(msg)
 	case es.AppendedEvent:
 		return p.processCommittedEvent(msg)
 	case localAppendRequest:
