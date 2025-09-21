@@ -1,11 +1,8 @@
 package server
 
 import (
-	"context"
 	"fmt"
 	"log"
-
-	"github.com/SSripilaipong/go-common/rslt"
 
 	"github.com/SSripilaipong/muon/common/system"
 	"github.com/SSripilaipong/muon/server/coordinator"
@@ -14,30 +11,11 @@ import (
 	"github.com/SSripilaipong/muon/server/runner"
 )
 
-type runnerLocalNodeProxy struct {
-	runner *runner.Controller
-}
-
-func (p *runnerLocalNodeProxy) LocalAppend(ctx context.Context, actions []eventsource.Action) rslt.Of[eventsource.AppendResponse] {
-	if p.runner == nil {
-		return rslt.Error[eventsource.AppendResponse](fmt.Errorf("runner is not initialized"))
-	}
-	return p.runner.LocalAppend(ctx, actions)
-}
-
-func (p *runnerLocalNodeProxy) MarkCommitUntil(ctx context.Context, sequence uint64) error {
-	if p.runner == nil {
-		return fmt.Errorf("runner is not initialized")
-	}
-	return p.runner.MarkCommitUntil(ctx, sequence)
-}
-
 func Start() error {
 	esStore := eventsource.New()
-	localProxy := &runnerLocalNodeProxy{}
-	coordCtrl := coordinator.New(localProxy)
-	orCtrl := runner.New(esStore, coordCtrl)
-	localProxy.runner = orCtrl
+	orCtrl := runner.New(esStore)
+	coordCtrl := coordinator.New(orCtrl)
+	orCtrl.SetCoordinator(coordCtrl)
 	gw := gateway.New(runner.NewService(orCtrl))
 
 	err, stopCoord := startCoordinator(coordCtrl)

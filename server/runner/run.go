@@ -37,7 +37,13 @@ func (s Service) Run(ctx context.Context, node stResult.SimplifiedNode) error {
 
 func (p *processor) processRunRequest(msg runRequest) rslt.Of[actor.Processor[any]] {
 	go func() {
-		err := p.coord.Submit(p.ctx, []es.Action{
+		coord := p.ctrl.coordinator()
+		if coord == nil {
+			_ = chn.SendWithTimeout(msg.Reply(), fmt.Errorf("coordinator is not set"), channelTimeout)
+			return
+		}
+
+		err := coord.Submit(p.ctx, []es.Action{
 			es.NewAppendAction(es.NewRunEvent(msg.ModuleVersion(), msg.Node())),
 		})
 		if err != nil {

@@ -16,18 +16,25 @@ import (
 
 type Controller struct {
 	*actor.Controller[any]
-	es *es.Store
+	es    *es.Store
+	coord *coordinator.Controller
 }
 
-func New(esStore *es.Store, coord *coordinator.Controller) *Controller {
-	ctrl := &Controller{
-		Controller: actor.NewController[any](func(ctx context.Context) actor.Processor[any] {
-			return newProcessor(ctx, runnerModule.NewCollection(), esStore, coord)
-		}),
-		es: esStore,
-	}
+func New(esStore *es.Store) *Controller {
+	ctrl := &Controller{es: esStore}
+	ctrl.Controller = actor.NewController[any](func(ctx context.Context) actor.Processor[any] {
+		return newProcessor(ctx, runnerModule.NewCollection(), esStore, ctrl)
+	})
 	esStore.AddObserver(newEventSourceObserver(ctrl))
 	return ctrl
+}
+
+func (c *Controller) SetCoordinator(coord *coordinator.Controller) {
+	c.coord = coord
+}
+
+func (c *Controller) coordinator() *coordinator.Controller {
+	return c.coord
 }
 
 func (c *Controller) LocalAppend(ctx context.Context, actions []es.Action) rslt.Of[es.AppendResponse] {

@@ -8,7 +8,6 @@ import (
 
 	"github.com/SSripilaipong/muon/common/actor"
 	"github.com/SSripilaipong/muon/common/chn"
-	"github.com/SSripilaipong/muon/server/coordinator"
 	es "github.com/SSripilaipong/muon/server/eventsource"
 	runnerModule "github.com/SSripilaipong/muon/server/runner/module"
 )
@@ -17,15 +16,15 @@ type processor struct {
 	ctx              context.Context
 	moduleCollection *runnerModule.Collection
 	esStore          *es.Store
-	coord            *coordinator.Controller
+	ctrl             *Controller
 }
 
-func newProcessor(ctx context.Context, moduleCollection *runnerModule.Collection, esStore *es.Store, coord *coordinator.Controller) *processor {
+func newProcessor(ctx context.Context, moduleCollection *runnerModule.Collection, esStore *es.Store, ctrl *Controller) *processor {
 	return &processor{
 		ctx:              ctx,
 		moduleCollection: moduleCollection,
 		esStore:          esStore,
-		coord:            coord,
+		ctrl:             ctrl,
 	}
 }
 
