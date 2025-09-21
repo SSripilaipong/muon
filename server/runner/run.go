@@ -45,10 +45,10 @@ func (p *processor) processRunRequest(msg runRequest) rslt.Of[actor.Processor[an
 		}
 		_ = chn.SendWithTimeout(msg.Reply(), err, channelTimeout)
 	}()
-	return rslt.Value[actor.Processor[any]](p)
+	return p.SameProcessor()
 }
 
-func (p *processor) processRunEvent(event es.RunEvent, seq uint64) rslt.Of[actor.Processor[any]] {
+func (p *processor) processRunEvent(event es.RunEvent, _ uint64) rslt.Of[actor.Processor[any]] {
 	if err := func() error {
 		mod, err := p.moduleCollection.Get(event.ModuleVersion).Return()
 		if err != nil {
@@ -65,5 +65,5 @@ func (p *processor) processRunEvent(event es.RunEvent, seq uint64) rslt.Of[actor
 	}(); err != nil {
 		log.Printf("[server.runner] fail to process run event: %v\n", err)
 	}
-	return rslt.Value[actor.Processor[any]](p)
+	return p.SameProcessor()
 }

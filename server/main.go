@@ -1,8 +1,11 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"log"
+
+	"github.com/SSripilaipong/go-common/rslt"
 
 	"github.com/SSripilaipong/muon/common/system"
 	"github.com/SSripilaipong/muon/server/coordinator"
@@ -11,10 +14,30 @@ import (
 	"github.com/SSripilaipong/muon/server/runner"
 )
 
+type runnerLocalNodeProxy struct {
+	runner *runner.Controller
+}
+
+func (p *runnerLocalNodeProxy) LocalAppend(ctx context.Context, actions []eventsource.Action) rslt.Of[eventsource.AppendResponse] {
+	if p.runner == nil {
+		return rslt.Error[eventsource.AppendResponse](fmt.Errorf("runner is not initialized"))
+	}
+	return p.runner.LocalAppend(ctx, actions)
+}
+
+func (p *runnerLocalNodeProxy) MarkCommitUntil(ctx context.Context, sequence uint64) error {
+	if p.runner == nil {
+		return fmt.Errorf("runner is not initialized")
+	}
+	return p.runner.MarkCommitUntil(ctx, sequence)
+}
+
 func Start() error {
-	esCtrl := eventsource.New()
-	coordCtrl := coordinator.New(esCtrl)
-	orCtrl := runner.New(esCtrl, coordCtrl)
+	esStore := eventsource.New()
+	localProxy := &runnerLocalNodeProxy{}
+	coordCtrl := coordinator.New(localProxy)
+	orCtrl := runner.New(esStore, coordCtrl)
+	localProxy.runner = orCtrl
 	gw := gateway.New(runner.NewService(orCtrl))
 
 	err, stopCoord := startCoordinator(coordCtrl)
@@ -22,12 +45,6 @@ func Start() error {
 		return err
 	}
 	defer stopCoord()
-
-	err, stopEs := startEventSource(esCtrl)
-	if err != nil {
-		return err
-	}
-	defer stopEs()
 
 	err, stopGateway := startGateway(gw)
 	if err != nil {
@@ -43,7 +60,6 @@ func Start() error {
 
 	select {
 	case <-system.WaitForInterrupt():
-	case <-esCtrl.Done():
 	case <-gw.Done():
 	case <-orCtrl.Done():
 	}
@@ -58,17 +74,6 @@ func startCoordinator(coord *coordinator.Controller) (error, func()) {
 	return nil, func() {
 		if err := coord.Stop(); err != nil {
 			log.Println("stopping coordinator failed:", err)
-		}
-	}
-}
-
-func startEventSource(eventSource *eventsource.Controller) (error, func()) {
-	if err := eventSource.Start(); err != nil {
-		return fmt.Errorf("cannot start event source: %w", err), nil
-	}
-	return nil, func() {
-		if err := eventSource.Stop(); err != nil {
-			log.Println("stopping event source failed:", err)
 		}
 	}
 }

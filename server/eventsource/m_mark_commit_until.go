@@ -6,57 +6,28 @@ import (
 	"log"
 
 	"github.com/SSripilaipong/go-common/rslt"
-
-	"github.com/SSripilaipong/muon/common/actor"
-	"github.com/SSripilaipong/muon/common/chn"
-	"github.com/SSripilaipong/muon/common/ctxs"
-	"github.com/SSripilaipong/muon/common/fn"
-	"github.com/SSripilaipong/muon/common/msgutil"
 )
 
-type markCommitUntilRequest struct {
-	Sequence uint64
-	msgutil.ReplyMixin[error]
-}
-
-func (c *Controller) MarkCommitUntil(ctx context.Context, sequence uint64) error {
-	reply := make(chan error, 1)
-
-	err := chn.SendWithContextTimeout[any](ctx, c.Ch(), markCommitUntilRequest{
-		Sequence:   sequence,
-		ReplyMixin: msgutil.NewReplyMixin(reply, channelTimeout),
-	}, channelTimeout)
-	if err != nil {
-		return fmt.Errorf("cannot connect to event source: %w", err)
+func (s *Store) MarkCommitUntil(_ context.Context, sequence uint64) error {
+	if sequence < s.commitUntil {
+		return fmt.Errorf("decreasing commit is not allowed")
+	}
+	if sequence == s.commitUntil {
+		return nil
 	}
 
-	var response error
-	ctxs.TimeoutScope(ctx, channelTimeout, func(ctx context.Context) {
-		response = rslt.Transform(fn.Id[error], fn.Id)(chn.ReceiveWithContext(ctx, reply))
-	})
-	return response
-}
+	previousCommitUntil := s.commitUntil
+	s.commitUntil = sequence
 
-func (p *processor) processMarkCommitUntil(msg markCommitUntilRequest) rslt.Of[actor.Processor[any]] {
-	previousCommitUntil := p.commitUntil
-
-	_ = msg.Reply(func() error {
-		if msg.Sequence < p.commitUntil {
-			return fmt.Errorf("decreasing commit is not allowed")
-		}
-		p.commitUntil = msg.Sequence
-		return nil
-	}())
-
-	commitStartIndex, err := seekToSequence(p.events, previousCommitUntil+1).Return()
+	commitStartIndex, err := seekToSequence(s.events, previousCommitUntil+1).Return()
 	if err != nil {
 		log.Println("[server.eventsource] error while seeking sequence:", err)
-		return p.SameProcessor()
+		return nil
 	}
-	p.observer.Update(p.events[commitStartIndex:])
 
-	log.Println("DEBUG commit until:", p.commitUntil)
-	return p.SameProcessor()
+	s.observer.Update(s.events[commitStartIndex:])
+
+	return nil
 }
 
 func seekToSequence(events []AppendedEvent, seq uint64) rslt.Of[uint64] {

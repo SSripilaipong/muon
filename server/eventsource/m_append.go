@@ -3,21 +3,9 @@ package eventsource
 import (
 	"context"
 	"fmt"
-	"log"
 
 	"github.com/SSripilaipong/go-common/rslt"
-
-	"github.com/SSripilaipong/muon/common/actor"
-	"github.com/SSripilaipong/muon/common/chn"
-	"github.com/SSripilaipong/muon/common/ctxs"
-	"github.com/SSripilaipong/muon/common/msgutil"
-	"github.com/SSripilaipong/muon/common/slc"
 )
-
-type appendRequest struct {
-	msgutil.ReplyMixin[rslt.Of[AppendResponse]]
-	Actions []Action
-}
 
 type Action any
 
@@ -32,68 +20,50 @@ type ChainedEvent struct {
 	PreviousHash     uint64
 }
 
-func (c *Controller) LocalAppend(ctx context.Context, actions []Action) rslt.Of[AppendResponse] {
-	reply := make(chan rslt.Of[AppendResponse], 1)
+func (s *Store) LocalAppend(_ context.Context, actions []Action) rslt.Of[AppendResponse] {
+	previousSequence := s.latestSequence()
+	previousHash := s.lastHash()
 
-	err := chn.SendWithContextTimeout[any](ctx, c.Ch(), appendRequest{
-		Actions:    actions,
-		ReplyMixin: msgutil.NewReplyMixin(reply, channelTimeout),
-	}, channelTimeout)
-	if err != nil {
-		return rslt.Error[AppendResponse](fmt.Errorf("cannot connect to event source: %w", err))
+	eventsToAppend, appendErr := processAppendActions(actions, previousSequence)
+	if appendErr != nil {
+		return rslt.Error[AppendResponse](appendErr)
 	}
 
-	var response rslt.Of[AppendResponse]
-	ctxs.TimeoutScope(ctx, channelTimeout, func(ctx context.Context) {
-		response = rslt.Join(chn.ReceiveWithContext(ctx, reply))
+	s.events = append(s.events, eventsToAppend...)
+
+	latestSequence := s.latestSequence()
+	chainedEvents := buildChainedEvents(eventsToAppend, previousSequence, previousHash)
+
+	return rslt.Value(AppendResponse{
+		LatestCommittedSequence: latestSequence,
+		ChainedEvents:           chainedEvents,
 	})
-	return response
 }
 
-func (p *processor) processAppendRequest(msg appendRequest) rslt.Of[actor.Processor[any]] {
-	var eventsToAppend []AppendedEvent
-	var previousHash uint64
-	var appendErr error
-
-	p.Atomic(func(events []AppendedEvent) (resultEvents []AppendedEvent, ok bool) { // actually the events param should be the reduced current state, but it can't be implemented now
-		previousHash = slc.LastDefaultZero(events).Hash()
-
-		eventsToAppend, appendErr = processAppendActions(msg.Actions, p.LatestSequence())
-		return eventsToAppend, appendErr == nil
-	})
-	appendedEvents := eventsToAppend
-
-	go respondAppend(msg.Reply, appendErr, appendedEvents, previousHash, p.LatestSequence())
-
-	log.Println("DEBUG current events:", p.events)
-	return p.SameProcessor()
+func (s *Store) ForceAppend(ctx context.Context, actions []Action) rslt.Of[AppendResponse] {
+	return s.LocalAppend(ctx, actions)
 }
 
-func respondAppend(respond func(x rslt.Of[AppendResponse]) error, appendErr error, appendedEvents []AppendedEvent, latestHash uint64, latestSequence uint64) { // TODO implement
-	_ = respond(func() rslt.Of[AppendResponse] {
-		if appendErr != nil {
-			return rslt.Error[AppendResponse](appendErr)
-		}
+func buildChainedEvents(appended []AppendedEvent, previousSequence, previousHash uint64) []ChainedEvent {
+	if len(appended) == 0 {
+		return nil
+	}
 
-		var chainedEvents []ChainedEvent
-		previousHash, previousSequence := latestHash, latestSequence
-		for _, event := range appendedEvents {
-			chainedEvents = append(chainedEvents, ChainedEvent{
-				Event:            event,
-				PreviousSequence: previousSequence,
-				PreviousHash:     previousHash,
-			})
-			previousHash, previousSequence = event.Hash(), event.Sequence()
-		}
-		return rslt.Value(AppendResponse{
-			LatestCommittedSequence: latestSequence,
-			ChainedEvents:           chainedEvents,
+	chained := make([]ChainedEvent, 0, len(appended))
+	seq, hash := previousSequence, previousHash
+	for _, event := range appended {
+		chained = append(chained, ChainedEvent{
+			Event:            event,
+			PreviousSequence: seq,
+			PreviousHash:     hash,
 		})
-	}())
+		seq = event.Sequence()
+		hash = event.Hash()
+	}
+	return chained
 }
 
 func processAppendActions(actions []Action, previousSeq uint64) ([]AppendedEvent, error) {
-	var cs []uint64
 	var eventsToAppend []AppendedEvent
 	seq := previousSeq
 	for _, action := range actions {
@@ -105,7 +75,6 @@ func processAppendActions(actions []Action, previousSeq uint64) ([]AppendedEvent
 			}
 			seq++
 			eventsToAppend = append(eventsToAppend, NewAppended(action.event, seq))
-			cs = append(cs, seq)
 		default:
 			return nil, fmt.Errorf("unknown action %T", action)
 		}
