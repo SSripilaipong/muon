@@ -2,12 +2,14 @@ package runner
 
 import (
 	"context"
+	"fmt"
 	"log"
 
 	"github.com/SSripilaipong/go-common/rslt"
 
 	"github.com/SSripilaipong/muon/common/actor"
 	"github.com/SSripilaipong/muon/common/chn"
+	"github.com/SSripilaipong/muon/server/coordinator"
 	es "github.com/SSripilaipong/muon/server/eventsource"
 	runnerModule "github.com/SSripilaipong/muon/server/runner/module"
 )
@@ -16,24 +18,30 @@ type processor struct {
 	ctx              context.Context
 	moduleCollection *runnerModule.Collection
 	esStore          *es.Store
+	coord            *coordinator.Controller
 }
 
-func newProcessor(ctx context.Context, moduleCollection *runnerModule.Collection, esStore *es.Store) *processor {
+func newProcessor(ctx context.Context, moduleCollection *runnerModule.Collection, esStore *es.Store, coord *coordinator.Controller) *processor {
 	return &processor{
 		ctx:              ctx,
 		moduleCollection: moduleCollection,
 		esStore:          esStore,
+		coord:            coord,
 	}
 }
 
 func (p *processor) Process(msg any) rslt.Of[actor.Processor[any]] {
 	switch msg := msg.(type) {
+	case runRequest:
+		return p.processRunRequest(msg)
 	case es.AppendedEvent:
 		return p.processCommittedEvent(msg)
 	case localAppendRequest:
 		return p.processLocalAppendRequest(msg)
 	case markCommitUntilRequest:
 		return p.processMarkCommitUntilRequest(msg)
+	case setCoordinatorRequest:
+		return p.processSetCoordinatorRequest(msg)
 	default:
 		log.Printf("[server.runner] unknown message type: %T", msg)
 	}
@@ -54,6 +62,29 @@ func (p *processor) processCommittedEvent(msg es.AppendedEvent) rslt.Of[actor.Pr
 	return p.SameProcessor()
 }
 
+func (p *processor) processRunRequest(msg runRequest) rslt.Of[actor.Processor[any]] {
+	go func() {
+		coord := p.coord
+		if coord == nil {
+			if err := chn.SendWithTimeout(msg.Reply(), fmt.Errorf("coordinator is not set"), channelTimeout); err != nil {
+				log.Printf("[server.runner] cannot send run error: %v\n", err)
+			}
+			return
+		}
+
+		err := coord.Submit(p.ctx, []es.Action{
+			es.NewAppendAction(es.NewRunEvent(msg.ModuleVersion(), msg.Node())),
+		})
+		if err != nil {
+			err = fmt.Errorf("cannot commit: %w", err)
+		}
+		if sendErr := chn.SendWithTimeout(msg.Reply(), err, channelTimeout); sendErr != nil {
+			log.Printf("[server.runner] cannot send run response: %v\n", sendErr)
+		}
+	}()
+	return p.SameProcessor()
+}
+
 func (p *processor) processLocalAppendRequest(msg localAppendRequest) rslt.Of[actor.Processor[any]] {
 	response := p.esStore.LocalAppend(p.ctx, msg.Actions())
 	if err := chn.SendWithTimeout(msg.Reply(), response, channelTimeout); err != nil {
@@ -67,5 +98,10 @@ func (p *processor) processMarkCommitUntilRequest(msg markCommitUntilRequest) rs
 	if sendErr := chn.SendWithTimeout(msg.Reply(), err, channelTimeout); sendErr != nil {
 		log.Printf("[server.runner] cannot send mark commit response: %v\n", sendErr)
 	}
+	return p.SameProcessor()
+}
+
+func (p *processor) processSetCoordinatorRequest(msg setCoordinatorRequest) rslt.Of[actor.Processor[any]] {
+	p.coord = msg.Coordinator()
 	return p.SameProcessor()
 }

@@ -3,28 +3,39 @@ package runner
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"github.com/SSripilaipong/go-common/rslt"
 
 	"github.com/SSripilaipong/muon/common/actor"
 	"github.com/SSripilaipong/muon/common/chn"
 	"github.com/SSripilaipong/muon/common/ctxs"
+	"github.com/SSripilaipong/muon/server/coordinator"
 	es "github.com/SSripilaipong/muon/server/eventsource"
 	runnerModule "github.com/SSripilaipong/muon/server/runner/module"
 )
 
 type Controller struct {
 	*actor.Controller[any]
+	coord *coordinator.Controller
 }
 
 func New(esStore *es.Store) *Controller {
-	ctrl := &Controller{
-		Controller: actor.NewController[any](func(ctx context.Context) actor.Processor[any] {
-			return newProcessor(ctx, runnerModule.NewCollection(), esStore)
-		}),
-	}
+	ctrl := &Controller{}
+	ctrl.Controller = actor.NewController[any](func(ctx context.Context) actor.Processor[any] {
+		return newProcessor(ctx, runnerModule.NewCollection(), esStore, ctrl.coord)
+	})
 	esStore.AddObserver(newEventSourceObserver(ctrl))
 	return ctrl
+}
+
+func (c *Controller) SetCoordinator(coord *coordinator.Controller) {
+	c.coord = coord
+	if ch := c.Ch(); ch != nil {
+		if err := chn.SendWithTimeout[any](ch, setCoordinatorRequest{coord: coord}, channelTimeout); err != nil {
+			log.Printf("[server.runner] cannot send coordinator update: %v\n", err)
+		}
+	}
 }
 
 func (c *Controller) LocalAppend(ctx context.Context, actions []es.Action) rslt.Of[es.AppendResponse] {

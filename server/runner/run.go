@@ -9,24 +9,30 @@ import (
 	stResult "github.com/SSripilaipong/muto/syntaxtree/result"
 
 	"github.com/SSripilaipong/muon/common/actor"
+	"github.com/SSripilaipong/muon/common/chn"
+	"github.com/SSripilaipong/muon/common/ctxs"
 	es "github.com/SSripilaipong/muon/server/eventsource"
 	runnerModule "github.com/SSripilaipong/muon/server/runner/module"
 	"github.com/SSripilaipong/muon/server/runner/object"
 )
 
 func (s *Service) Run(ctx context.Context, node stResult.SimplifiedNode) error {
-	coord := s.coord
-	if coord == nil {
-		return fmt.Errorf("coordinator is not set")
+	reply := make(chan error, 1)
+
+	err := chn.SendWithContextTimeout[any](ctx, s.ctrl.Ch(), runRequest{
+		moduleVersion: runnerModule.VersionDefault,
+		node:          node,
+		reply:         reply,
+	}, channelTimeout)
+	if err != nil {
+		return fmt.Errorf("cannot connect to runner: %w", err)
 	}
 
-	err := coord.Submit(ctx, []es.Action{
-		es.NewAppendAction(es.NewRunEvent(runnerModule.VersionDefault, node)),
+	var response error
+	ctxs.TimeoutScope(ctx, channelTimeout, func(ctx context.Context) {
+		response = rslt.JoinError(chn.ReceiveWithContext(ctx, reply))
 	})
-	if err != nil {
-		return fmt.Errorf("cannot commit: %w", err)
-	}
-	return nil
+	return response
 }
 
 func (p *processor) processRunEvent(event es.RunEvent, _ uint64) rslt.Of[actor.Processor[any]] {
