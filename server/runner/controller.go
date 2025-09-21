@@ -3,7 +3,6 @@ package runner
 import (
 	"context"
 	"fmt"
-	"log"
 
 	"github.com/SSripilaipong/go-common/rslt"
 
@@ -31,11 +30,6 @@ func New(esStore *es.Store) *Controller {
 
 func (c *Controller) SetCoordinator(coord *coordinator.Controller) {
 	c.coord = coord
-	if ch := c.Ch(); ch != nil {
-		if err := chn.SendWithTimeout[any](ch, setCoordinatorRequest{coord: coord}, channelTimeout); err != nil {
-			log.Printf("[server.runner] cannot send coordinator update: %v\n", err)
-		}
-	}
 }
 
 func (c *Controller) LocalAppend(ctx context.Context, actions []es.Action) rslt.Of[es.AppendResponse] {

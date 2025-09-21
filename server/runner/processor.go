@@ -40,8 +40,6 @@ func (p *processor) Process(msg any) rslt.Of[actor.Processor[any]] {
 		return p.processLocalAppendRequest(msg)
 	case markCommitUntilRequest:
 		return p.processMarkCommitUntilRequest(msg)
-	case setCoordinatorRequest:
-		return p.processSetCoordinatorRequest(msg)
 	default:
 		log.Printf("[server.runner] unknown message type: %T", msg)
 	}
@@ -98,10 +96,5 @@ func (p *processor) processMarkCommitUntilRequest(msg markCommitUntilRequest) rs
 	if sendErr := chn.SendWithTimeout(msg.Reply(), err, channelTimeout); sendErr != nil {
 		log.Printf("[server.runner] cannot send mark commit response: %v\n", sendErr)
 	}
-	return p.SameProcessor()
-}
-
-func (p *processor) processSetCoordinatorRequest(msg setCoordinatorRequest) rslt.Of[actor.Processor[any]] {
-	p.coord = msg.Coordinator()
 	return p.SameProcessor()
 }
