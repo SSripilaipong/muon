@@ -35,6 +35,39 @@ func (s Service) Run(ctx context.Context, node stResult.SimplifiedNode) error {
 	return response
 }
 
+func (p *processor) processRunRequest(msg runRequest) rslt.Of[actor.Processor[any]] {
+	go func() {
+		coord := p.coord
+		if coord == nil {
+			if err := chn.SendWithTimeout(msg.Reply(), fmt.Errorf("coordinator is not set"), channelTimeout); err != nil {
+				log.Printf("[server.runner] cannot send run error: %v\n", err)
+			}
+			return
+		}
+
+		err := coord.Submit(p.ctx, []es.Action{
+			es.NewAppendAction(es.NewRunEvent(msg.ModuleVersion(), msg.Node())),
+		})
+		if err != nil {
+			err = fmt.Errorf("cannot commit: %w", err)
+		}
+		if sendErr := chn.SendWithTimeout(msg.Reply(), err, channelTimeout); sendErr != nil {
+			log.Printf("[server.runner] cannot send run response: %v\n", sendErr)
+		}
+	}()
+	return p.SameProcessor()
+}
+
+func (p *processor) processCommittedEvent(msg es.AppendedEvent) rslt.Of[actor.Processor[any]] {
+	switch msg.EventName() {
+	case es.EventNameRun:
+		return p.processRunEvent(es.UnsafeEventToRunEvent(msg.Event()), msg.Sequence())
+	default:
+		log.Printf("[server.runner] unknown event name: %T", msg.EventName())
+	}
+	return p.SameProcessor()
+}
+
 func (p *processor) processRunEvent(event es.RunEvent, _ uint64) rslt.Of[actor.Processor[any]] {
 	if err := func() error {
 		mod, err := p.moduleCollection.Get(event.ModuleVersion).Return()

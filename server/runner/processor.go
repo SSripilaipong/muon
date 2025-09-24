@@ -2,13 +2,11 @@ package runner
 
 import (
 	"context"
-	"fmt"
 	"log"
 
 	"github.com/SSripilaipong/go-common/rslt"
 
 	"github.com/SSripilaipong/muon/common/actor"
-	"github.com/SSripilaipong/muon/common/chn"
 	"github.com/SSripilaipong/muon/server/coordinator"
 	es "github.com/SSripilaipong/muon/server/eventsource"
 	runnerModule "github.com/SSripilaipong/muon/server/runner/module"
@@ -48,53 +46,4 @@ func (p *processor) Process(msg any) rslt.Of[actor.Processor[any]] {
 
 func (p *processor) SameProcessor() rslt.Of[actor.Processor[any]] {
 	return rslt.Value[actor.Processor[any]](p)
-}
-
-func (p *processor) processCommittedEvent(msg es.AppendedEvent) rslt.Of[actor.Processor[any]] {
-	switch msg.EventName() {
-	case es.EventNameRun:
-		return p.processRunEvent(es.UnsafeEventToRunEvent(msg.Event()), msg.Sequence())
-	default:
-		log.Printf("[server.runner] unknown event name: %T", msg.EventName())
-	}
-	return p.SameProcessor()
-}
-
-func (p *processor) processRunRequest(msg runRequest) rslt.Of[actor.Processor[any]] {
-	go func() {
-		coord := p.coord
-		if coord == nil {
-			if err := chn.SendWithTimeout(msg.Reply(), fmt.Errorf("coordinator is not set"), channelTimeout); err != nil {
-				log.Printf("[server.runner] cannot send run error: %v\n", err)
-			}
-			return
-		}
-
-		err := coord.Submit(p.ctx, []es.Action{
-			es.NewAppendAction(es.NewRunEvent(msg.ModuleVersion(), msg.Node())),
-		})
-		if err != nil {
-			err = fmt.Errorf("cannot commit: %w", err)
-		}
-		if sendErr := chn.SendWithTimeout(msg.Reply(), err, channelTimeout); sendErr != nil {
-			log.Printf("[server.runner] cannot send run response: %v\n", sendErr)
-		}
-	}()
-	return p.SameProcessor()
-}
-
-func (p *processor) processLocalAppendRequest(msg localAppendRequest) rslt.Of[actor.Processor[any]] {
-	response := p.esStore.LocalAppend(p.ctx, msg.Actions())
-	if err := chn.SendWithTimeout(msg.Reply(), response, channelTimeout); err != nil {
-		log.Printf("[server.runner] cannot send append response: %v\n", err)
-	}
-	return p.SameProcessor()
-}
-
-func (p *processor) processMarkCommitUntilRequest(msg markCommitUntilRequest) rslt.Of[actor.Processor[any]] {
-	err := p.esStore.MarkCommitUntil(p.ctx, msg.Sequence())
-	if sendErr := chn.SendWithTimeout(msg.Reply(), err, channelTimeout); sendErr != nil {
-		log.Printf("[server.runner] cannot send mark commit response: %v\n", sendErr)
-	}
-	return p.SameProcessor()
 }
