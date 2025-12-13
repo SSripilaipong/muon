@@ -11,7 +11,6 @@ import (
 	"github.com/SSripilaipong/muon/common/actor"
 	"github.com/SSripilaipong/muon/common/chn"
 	"github.com/SSripilaipong/muon/common/ctxs"
-	es "github.com/SSripilaipong/muon/server/eventsource"
 	runnerModule "github.com/SSripilaipong/muon/server/runner/module"
 	"github.com/SSripilaipong/muon/server/runner/object"
 )
@@ -36,19 +35,28 @@ func (s Service) Run(ctx context.Context, node stResult.SimplifiedNode) error {
 }
 
 func (p *processor) processRunRequest(msg runRequest) rslt.Of[actor.Processor[any]] {
-	go func() {
-		err := p.coord.Submit(p.ctx, []es.Action{
-			es.NewAppendAction(es.NewRunEvent(msg.ModuleVersion(), msg.Node())),
-		})
-		if err != nil {
-			err = fmt.Errorf("cannot commit: %w", err)
-		}
-		_ = chn.SendWithTimeout(msg.Reply(), err, channelTimeout)
-	}()
+	err := p.handleRunSubmission(msg)
+	_ = chn.SendWithTimeout(msg.Reply(), err, channelTimeout)
 	return rslt.Value[actor.Processor[any]](p)
 }
 
-func (p *processor) processRunEvent(event es.RunEvent, seq uint64) rslt.Of[actor.Processor[any]] {
+func (p *processor) handleRunSubmission(msg runRequest) error {
+	result, err := p.coord.Submit(p.ctx, []Action{
+		NewAppendAction(NewRunEvent(msg.ModuleVersion(), msg.Node())),
+	})
+	if err != nil {
+		return fmt.Errorf("cannot commit: %w", err)
+	}
+
+	for _, event := range result.CommittedEvents {
+		if event.EventName() == EventNameRun {
+			p.handleRunEvent(UnsafeEventToRunEvent(event.Event()))
+		}
+	}
+	return nil
+}
+
+func (p *processor) handleRunEvent(event RunEvent) {
 	if err := func() error {
 		mod, err := p.moduleCollection.Get(event.ModuleVersion).Return()
 		if err != nil {
@@ -65,5 +73,4 @@ func (p *processor) processRunEvent(event es.RunEvent, seq uint64) rslt.Of[actor
 	}(); err != nil {
 		log.Printf("[server.runner] fail to process run event: %v\n", err)
 	}
-	return rslt.Value[actor.Processor[any]](p)
 }

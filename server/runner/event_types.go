@@ -1,6 +1,7 @@
-package eventsource
+package runner
 
 import (
+	"github.com/SSripilaipong/go-common/optional"
 	"github.com/SSripilaipong/muto/syntaxtree/result"
 
 	"github.com/SSripilaipong/muon/common/randutil"
@@ -14,7 +15,7 @@ type Event interface {
 type EventName string
 
 const (
-	EventNameRun = "RUN"
+	EventNameRun EventName = "RUN"
 )
 
 type AppendedEvent struct {
@@ -49,8 +50,27 @@ func NewRunEvent(moduleVersion string, node result.SimplifiedNode) RunEvent {
 }
 
 func (RunEvent) EventName() EventName { return EventNameRun }
-func (e RunEvent) Hash() uint64       { return e.hash } // TODO implement hash function
+func (e RunEvent) Hash() uint64       { return e.hash }
 
 func UnsafeEventToRunEvent(e Event) RunEvent {
 	return e.(RunEvent)
+}
+
+type AppendAction struct {
+	event            Event
+	requiredSequence optional.Of[uint64]
+}
+
+func NewAppendAction(event Event, opts ...func(*AppendAction)) AppendAction {
+	act := AppendAction{event: event}
+	for _, opt := range opts {
+		opt(&act)
+	}
+	return act
+}
+
+func AppendAtSequence(seq uint64) func(*AppendAction) {
+	return func(a *AppendAction) {
+		a.requiredSequence = optional.Value(seq)
+	}
 }
