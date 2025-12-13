@@ -4,7 +4,7 @@ go 1.25.0
 
 require (
 	github.com/SSripilaipong/go-common v0.0.0-20250815172413-149b90af1921
-	github.com/SSripilaipong/muto v0.0.4-0.20250813151347-62fbe3b1484e
+	github.com/SSripilaipong/muto v0.0.4-0.20251126080051-bc23a7370dcf
 	github.com/chzyer/readline v1.5.1
 	github.com/stretchr/testify v1.9.0
 	github.com/urfave/cli/v2 v2.27.7
